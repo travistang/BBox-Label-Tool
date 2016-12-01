@@ -120,20 +120,18 @@ class LabelTool():
 ##        self.loadDir()
 
     def loadDir(self, dbg = False):
-        if not dbg:
+    	if not dbg:
             s = self.entry.get()
+            self.imageDir = s
+            print self.imageDir
             self.parent.focus()
-            self.category = int(s)
-        else:
-            s = r'D:\workspace\python\labelGUI'
-##        if not os.path.isdir(s):
-##            tkMessageBox.showerror("Error!", message = "The specified dir doesn't exist!")
-##            return
+            self.category = 1
+		
         # get image list
-        self.imageDir = os.path.join(r'./Images', '%03d' %(self.category))
-        self.imageList = glob.glob(os.path.join(self.imageDir, '*.JPEG'))
+#        self.imageDir = os.path.join(r'./Images', '%03d' %(self.category))
+        self.imageList = glob.glob(os.path.join(self.imageDir, '*.jpg'))
         if len(self.imageList) == 0:
-            print 'No .JPEG images found in the specified dir!'
+            print 'No .jpg images found in the specified dir!'
             return
 
         # default to the 1st image in the collection
