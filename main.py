@@ -13,6 +13,7 @@ from PIL import Image, ImageTk
 import os
 import glob
 import random
+from re import sub as sed
 
 # colors for the bboxes
 COLORS = ['red', 'blue', 'yellow', 'pink', 'cyan', 'green', 'black']
@@ -123,13 +124,15 @@ class LabelTool():
     	if not dbg:
             s = self.entry.get()
             self.imageDir = s
-            print self.imageDir
+            if self.imageDir[-1] == '/': self.imageDir = self.imageDir[0:-1]
             self.parent.focus()
             self.category = 1
 		
         # get image list
+        print os.path.join(self.imageDir, '*.jpg')
 #        self.imageDir = os.path.join(r'./Images', '%03d' %(self.category))
-        self.imageList = glob.glob(os.path.join(self.imageDir, '*.jpg'))
+        self.imageList = filter(lambda n:".jpg" in n,os.listdir(self.imageDir))
+        self.imageList = map(lambda n: os.path.join(self.imageDir,n),self.imageList)
         if len(self.imageList) == 0:
             print 'No .jpg images found in the specified dir!'
             return
@@ -139,7 +142,9 @@ class LabelTool():
         self.total = len(self.imageList)
 
          # set up output dir
-        self.outDir = os.path.join(r'./Labels', '%03d' %(self.category))
+        
+        self.outDir = self.imageDir + '_labels'
+        print self.outDir
         if not os.path.exists(self.outDir):
             os.mkdir(self.outDir)
 
