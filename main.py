@@ -66,6 +66,7 @@ class LabelTool():
         # main panel for labeling
         self.mainPanel = Canvas(self.frame, cursor='tcross')
         self.mainPanel.bind("<Button-1>", self.mouseClick)
+        self.mainPanel.bind("<Button-3>",self.rMouseClick)
         self.mainPanel.bind("<Motion>", self.mouseMove)
         self.parent.bind("<Escape>", self.cancelBBox)  # press <Espace> to cancel current bbox
         self.parent.bind("s", self.cancelBBox)
@@ -124,10 +125,13 @@ class LabelTool():
     	if not dbg:
             s = self.entry.get()
             self.imageDir = s
+            # load my default directory:)
+            if len(s) == 0:
+            	self.imageDir = '/home/travis/Research/Car/images_2_jpg'
             if self.imageDir[-1] == '/': self.imageDir = self.imageDir[0:-1]
             self.parent.focus()
             self.category = 1
-		
+	
         # get image list
         print os.path.join(self.imageDir, '*.jpg')
 #        self.imageDir = os.path.join(r'./Images', '%03d' %(self.category))
@@ -155,7 +159,7 @@ class LabelTool():
         filelist = glob.glob(os.path.join(self.egDir, '*.JPEG'))
         self.tmp = []
         self.egList = []
-        random.shuffle(filelist)
+        #random.shuffle(filelist)
         for (i, f) in enumerate(filelist):
             if i == 3:
                 break
@@ -186,20 +190,20 @@ class LabelTool():
         bbox_cnt = 0
         if os.path.exists(self.labelfilename):
             with open(self.labelfilename) as f:
-                for (i, line) in enumerate(f):
-                    if i == 0:
-                        bbox_cnt = int(line.strip())
-                        continue
-                    tmp = [int(t.strip()) for t in line.split()]
-##                    print tmp
-                    self.bboxList.append(tuple(tmp))
-                    tmpId = self.mainPanel.create_rectangle(tmp[0], tmp[1], \
-                                                            tmp[2], tmp[3], \
-                                                            width = 2, \
-                                                            outline = COLORS[(len(self.bboxList)-1) % len(COLORS)])
-                    self.bboxIdList.append(tmpId)
-                    self.listbox.insert(END, '(%d, %d) -> (%d, %d)' %(tmp[0], tmp[1], tmp[2], tmp[3]))
-                    self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = COLORS[(len(self.bboxIdList) - 1) % len(COLORS)])
+            	lines = f.readlines()
+            	# list of strings with 4 numbers
+            	recs = filter(lambda a: len(a.split()) == 4,lines)
+            	# list of tuples of int with 4 entries
+            	tups = map(lambda l: tuple(map(int,l.split())),recs)
+            	bbox_cnt = len(tups)
+            	self.bboxList = self.bboxList + tups
+            	col_ind = 0
+            	for a,b,c,d in tups:
+            		tmpId = self.mainPanel.create_rectangle(a,b,c,d,width = 2,outline = COLORS[col_ind % len(COLORS)])
+            		self.bboxIdList.append(tmpId)
+                    	self.listbox.insert(END, '(%d, %d) -> (%d, %d)' %(a,b,c,d))
+                    	self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = COLORS[col_ind % len(COLORS)])
+                    	col_ind = col_ind + 1
 
     def saveImage(self):
         with open(self.labelfilename, 'w') as f:
@@ -208,6 +212,25 @@ class LabelTool():
                 f.write(' '.join(map(str, bbox)) + '\n')
         print 'Image No. %d saved' %(self.cur)
 
+
+    # select box under cursor by right-clicking
+    def rMouseClick(self,event):
+    	self.listbox.selection_clear(0,END)
+    	box = self.getBoundingBox(event.x,event.y)
+    	if box:
+    		a,b,c,d = box
+    		lbl = '(%d, %d) -> (%d, %d)' % (a,b,c,d)
+    		for i,l in enumerate(self.listbox.get(0,END)):
+    			if l == lbl:
+    				self.listbox.selection_set(i)
+    				return
+    
+    				
+    # helper function to help getting bounding box given coordinates
+    def getBoundingBox(self,x,y):
+    	if self.bboxList is None: return None
+    	bbox = filter(lambda (x1,y1,x2,y2): x in range(x1,x2 + 1) and y in range(y1,y2 + 1),self.bboxList)
+    	return bbox[0] if len(bbox) > 0 else None
 
     def mouseClick(self, event):
         if self.STATE['click'] == 0:
