@@ -41,6 +41,7 @@ class LabelTool():
         self.imagename = ''
         self.labelfilename = ''
         self.tkimg = None
+        self.minBoxFilterSize = StringVar()
 
         # initialize mouse state
         self.STATE = {}
@@ -83,6 +84,12 @@ class LabelTool():
         self.btnDel.grid(row = 3, column = 2, sticky = W+E+N)
         self.btnClear = Button(self.frame, text = 'ClearAll', command = self.clearBBox)
         self.btnClear.grid(row = 4, column = 2, sticky = W+E+N)
+        self.btnFilter = Button(self.frame,text = 'FilterBox', command = self.filterBBox)
+        self.btnFilter.grid(row = 5, column = 2, sticky = W+E+N)
+        self.lbl2 = Label(self.frame,text = 'min box size:')
+        self.lbl2.grid(row = 6, column = 2, sticky = W+N)
+        self.filterEntry = Entry(self.frame,width = 5,vcmd=self.validateFilterEntry,textvariable=self.minBoxFilterSize)
+        self.filterEntry.pack(side = LEFT)
 
         # control panel for image navigation
         self.ctrPanel = Frame(self.frame)
@@ -115,7 +122,7 @@ class LabelTool():
         self.disp.pack(side = RIGHT)
 
         self.frame.columnconfigure(1, weight = 1)
-        self.frame.rowconfigure(4, weight = 1)
+        self.frame.rowconfigure(7, weight = 1)
 
         # for debugging
 ##        self.setImage()
@@ -231,7 +238,15 @@ class LabelTool():
     	if self.bboxList is None: return None
     	bbox = filter(lambda (x1,y1,x2,y2): x in range(x1,x2 + 1) and y in range(y1,y2 + 1),self.bboxList)
     	return bbox[0] if len(bbox) > 0 else None
-
+    
+    # select all bbox less than or equal to the given size
+    def filterBBox(self):
+    	# TODO: add a field to adjust filter size
+    	size = 2500
+    	boxes = filter(lambda (x1,y1,x2,y2): (y2 - y1) * (x2 - x1) <= size,self.bboxList)
+    	lbls = map(lambda (a,b,c,d): '(%d, %d) -> (%d, %d)' % (a,b,c,d),boxes)
+    	sels = [self.listbox.selection_set(i) for i,l in enumerate(self.listbox.get(0,END)) if l in lbls]
+    	
     def mouseClick(self, event):
         if self.STATE['click'] == 0:
             self.STATE['x'], self.STATE['y'] = event.x, event.y
@@ -304,14 +319,13 @@ class LabelTool():
             self.saveImage()
             self.cur = idx
             self.loadImage()
-
-##    def setImage(self, imagepath = r'test2.png'):
-##        self.img = Image.open(imagepath)
-##        self.tkimg = ImageTk.PhotoImage(self.img)
-##        self.mainPanel.config(width = self.tkimg.width())
-##        self.mainPanel.config(height = self.tkimg.height())
-##        self.mainPanel.create_image(0, 0, image = self.tkimg, anchor=NW)
-
+    def validateFilterEntry(self):
+    	try:
+    		int(self.minBoxFilterSize)
+    		return True
+    	except:
+    		return False
+    		
 if __name__ == '__main__':
     root = Tk()
     tool = LabelTool(root)
