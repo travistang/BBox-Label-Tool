@@ -1,4 +1,4 @@
-#-------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 # Name:        Object bounding box label tool
 # Purpose:     Label object bboxes for ImageNet Detection data
 # Author:      Qiushi
@@ -70,6 +70,9 @@ class LabelTool():
         self.mainPanel.bind("<Button-3>",self.rMouseClick)
         self.mainPanel.bind("<Motion>", self.mouseMove)
         self.parent.bind("<Escape>", self.cancelBBox)  # press <Espace> to cancel current bbox
+        self.parent.bind("e",self.delBBox)
+        self.parent.bind("f",self.filterBBox)
+
         self.parent.bind("s", self.cancelBBox)
         self.parent.bind("a", self.prevImage) # press 'a' to go backforward
         self.parent.bind("d", self.nextImage) # press 'd' to go forward
@@ -78,7 +81,7 @@ class LabelTool():
         # showing bbox info & delete bbox
         self.lb1 = Label(self.frame, text = 'Bounding boxes:')
         self.lb1.grid(row = 1, column = 2,  sticky = W+N)
-        self.listbox = Listbox(self.frame, width = 22, height = 12)
+        self.listbox = Listbox(self.frame, selectmode=MULTIPLE,width = 22, height = 12)
         self.listbox.grid(row = 2, column = 2, sticky = N)
         self.btnDel = Button(self.frame, text = 'Delete', command = self.delBBox)
         self.btnDel.grid(row = 3, column = 2, sticky = W+E+N)
@@ -284,14 +287,13 @@ class LabelTool():
                 self.STATE['click'] = 0
 
     def delBBox(self):
-        sel = self.listbox.curselection()
-        if len(sel) != 1 :
-            return
-        idx = int(sel[0])
-        self.mainPanel.delete(self.bboxIdList[idx])
-        self.bboxIdList.pop(idx)
-        self.bboxList.pop(idx)
-        self.listbox.delete(idx)
+        #TODO: work on this function
+        while len(self.listbox.curselection()) > 0:
+            idx = int(self.listbox.curselection()[0])
+            self.mainPanel.delete(self.bboxIdList[idx])
+            self.bboxIdList.pop(idx)
+            self.bboxList.pop(idx)
+            self.listbox.delete(idx)
 
     def clearBBox(self):
         for idx in range(len(self.bboxIdList)):
