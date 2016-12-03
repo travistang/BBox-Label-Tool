@@ -89,8 +89,7 @@ class LabelTool():
         self.lbl2 = Label(self.frame,text = 'min box size:')
         self.lbl2.grid(row = 6, column = 2, sticky = W+N)
         self.filterEntry = Entry(self.frame,width = 5,vcmd=self.validateFilterEntry,textvariable=self.minBoxFilterSize)
-        self.filterEntry.pack(side = LEFT)
-
+        self.filterEntry.grid(row = 7, column = 2, sticky = W + N)
         # control panel for image navigation
         self.ctrPanel = Frame(self.frame)
         self.ctrPanel.grid(row = 5, column = 1, columnspan = 2, sticky = W+E)
@@ -242,7 +241,7 @@ class LabelTool():
     # select all bbox less than or equal to the given size
     def filterBBox(self):
     	# TODO: add a field to adjust filter size
-    	size = 2500
+    	size = int(self.minBoxFilterSize.get())
     	boxes = filter(lambda (x1,y1,x2,y2): (y2 - y1) * (x2 - x1) <= size,self.bboxList)
     	lbls = map(lambda (a,b,c,d): '(%d, %d) -> (%d, %d)' % (a,b,c,d),boxes)
     	sels = [self.listbox.selection_set(i) for i,l in enumerate(self.listbox.get(0,END)) if l in lbls]
