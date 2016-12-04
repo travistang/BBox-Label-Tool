@@ -13,10 +13,12 @@ from PIL import Image, ImageTk
 import os
 import glob
 import random
+import numpy as np
 from re import sub as sed
 
 # colors for the bboxes
 COLORS = ['red', 'blue', 'yellow', 'pink', 'cyan', 'green', 'black']
+HIGHLIGHT = 'purple'
 # image sizes for the examples
 SIZE = 256, 256
 
@@ -47,6 +49,7 @@ class LabelTool():
         self.STATE = {}
         self.STATE['click'] = 0
         self.STATE['x'], self.STATE['y'] = 0, 0
+        self.STATE['rclick'] = 0 # right click state
 
         # reference to bbox
         self.bboxIdList = []
@@ -93,6 +96,8 @@ class LabelTool():
         self.lbl2.grid(row = 6, column = 2, sticky = W+N)
         self.filterEntry = Entry(self.frame,width = 5,vcmd=self.validateFilterEntry,textvariable=self.minBoxFilterSize)
         self.filterEntry.grid(row = 7, column = 2, sticky = W + N)
+        self.btnExportPatches = Button(self.frame,text = 'ExportBBoxes', command = self.exportPatches)
+        self.btnExportPatches.grid(row = 8,column = 2,sticky = W+N)
         # control panel for image navigation
         self.ctrPanel = Frame(self.frame)
         self.ctrPanel.grid(row = 5, column = 1, columnspan = 2, sticky = W+E)
@@ -124,7 +129,7 @@ class LabelTool():
         self.disp.pack(side = RIGHT)
 
         self.frame.columnconfigure(1, weight = 1)
-        self.frame.rowconfigure(7, weight = 1)
+        self.frame.rowconfigure(8, weight = 1)
 
         # for debugging
 ##        self.setImage()
@@ -224,16 +229,21 @@ class LabelTool():
 
     # select box under cursor by right-clicking
     def rMouseClick(self,event):
-    	self.listbox.selection_clear(0,END)
-    	box = self.getBoundingBox(event.x,event.y)
-    	if box:
-    		a,b,c,d = box
-    		lbl = '(%d, %d) -> (%d, %d)' % (a,b,c,d)
-    		for i,l in enumerate(self.listbox.get(0,END)):
-    			if l == lbl:
-    				self.listbox.selection_set(i)
-    				return
-    
+        if self.STATE['rclick'] == 0: # click or start dragging
+    	    self.listbox.selection_clear(0,END)
+            self.STATE['x'] = event.x
+            self.STATE['y'] = event.y
+
+            box = self.getBoundingBox(event.x,event.y)
+            if box:
+                    a,b,c,d = box
+                    lbl = '(%d, %d) -> (%d, %d)' % (a,b,c,d)
+                    for i,l in enumerate(self.listbox.get(0,END)):
+                            if l == lbl:
+                                    self.listbox.selection_set(i)
+	else: # done dargging
+            self.STATE['x'] = self.STATE['y'] = 0
+    	self.STATE['rclick'] = 1 - self.STATE['rclick'] # toggle rclick flag
     				
     # helper function to help getting bounding box given coordinates
     def getBoundingBox(self,x,y):
@@ -242,7 +252,7 @@ class LabelTool():
     	return bbox[0] if len(bbox) > 0 else None
     
     # select all bbox less than or equal to the given size
-    def filterBBox(self):
+    def filterBBox(self,event = None):
     	# TODO: add a field to adjust filter size
     	size = int(self.minBoxFilterSize.get())
     	boxes = filter(lambda (x1,y1,x2,y2): (y2 - y1) * (x2 - x1) <= size,self.bboxList)
@@ -250,6 +260,7 @@ class LabelTool():
     	sels = [self.listbox.selection_set(i) for i,l in enumerate(self.listbox.get(0,END)) if l in lbls]
     	
     def mouseClick(self, event):
+        self.STATE['rclick'] = 0 # elimiate right click
         if self.STATE['click'] == 0:
             self.STATE['x'], self.STATE['y'] = event.x, event.y
         else:
@@ -278,7 +289,28 @@ class LabelTool():
                                                             event.x, event.y, \
                                                             width = 2, \
                                                             outline = COLORS[len(self.bboxList) % len(COLORS)])
-
+        elif 1 == self.STATE['rclick']:
+            self.listbox.selection_clear(0,END) # remove all selection and try again
+            # create a rectangle
+            if self.bboxId:
+                self.mainPanel.delete(self.bboxId)
+            self.bboxId = self.mainPanel.create_rectangle(self.STATE['x'], self.STATE['y'], \
+                                                            event.x, event.y, \
+                                                            width = 2, \
+                                                            outline = HIGHLIGHT)
+            # get selection
+            boxes = self.getSelection(self.STATE['x'],self.STATE['y'],event.x,event.y)
+    	    lbls = map(lambda (a,b,c,d): '(%d, %d) -> (%d, %d)' % (a,b,c,d),boxes)
+            
+    	    sels = [self.listbox.selection_set(i) for i,l in enumerate(self.listbox.get(0,END)) if l in lbls]
+    def getSelection(self,sx,sy,x,y):
+            startx,endx = min(sx,x),max(sx,x)
+            starty,endy = min(sy,y),max(sy,y)
+            res = []
+            for (i,j,k,l) in self.bboxList:
+                if i in range(startx,endx) and j in range(starty,endy):
+                    res.append((i,j,k,l))
+            return res
     def cancelBBox(self, event):
         if 1 == self.STATE['click']:
             if self.bboxId:
@@ -286,8 +318,7 @@ class LabelTool():
                 self.bboxId = None
                 self.STATE['click'] = 0
 
-    def delBBox(self):
-        #TODO: work on this function
+    def delBBox(self,event = None):
         while len(self.listbox.curselection()) > 0:
             idx = int(self.listbox.curselection()[0])
             self.mainPanel.delete(self.bboxIdList[idx])
@@ -326,7 +357,32 @@ class LabelTool():
     		return True
     	except:
     		return False
-    		
+    @staticmethod
+    def boxArea(tup):
+        a,b,c,d = tup
+        return (d - b) * (c - a)
+    # export bbox(patches) to given directory (hard-coded here)
+    def exportPatches(self):
+        path = '/home/travis/patches'
+        if not os.path.isdir(path): os.mkdir(path)
+        print 'writing to %s' % path
+        def extract_patch_coord(fn):
+            res = None
+            with open(os.path.join(self.outDir,fn),'r') as f:
+                res = f.readlines()
+            return map(lambda l: map(int,l.split()),filter(lambda l: len(l.split()) == 4,res))
+        # collect patches as dictionary
+        patches = dict()
+        for fn in filter(lambda n: ".txt" == n[-4:],os.listdir(self.outDir)):
+            patches[fn] = extract_patch_coord(fn)
+
+        for fn,pats in patches.items():
+            # TODO: test this 
+            baseName = fn.replace('.txt','')
+            inputImName = baseName + '.jpg'
+            im = Image.open(os.path.join(self.imageDir,inputImName))
+            res = [im.crop(tuple(r)).save("%s-%s.jpg" % (baseName,i)) for (i,r) in enumerate(pats) if self.boxArea(r) > 90]
+            print "%d boxes from %s saved" % (len(res),fn)
 if __name__ == '__main__':
     root = Tk()
     tool = LabelTool(root)
